@@ -11,11 +11,10 @@ const ffmpeg = require("fluent-ffmpeg");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
-const Jimp = require("jimp"); // Necessário para o comando ?vasco
 
 // Servidor HTTP para manter o bot online na Discloud
 http.createServer((req, res) => {
-    res.write("O bot do RIFT esta online!");
+    res.write("O bot de videos do RIFT esta online!");
     res.end();
 }).listen(process.env.PORT || 3000);
 
@@ -32,7 +31,7 @@ const TOKEN = process.env.TOKEN;
 const PREFIX = "?";
 
 client.once("clientReady", () => {
-    console.log(`${client.user.tag} online no RIFT!`);
+    console.log(`${client.user.tag} (VÍDEOS) online no RIFT!`);
 });
 
 client.on("messageCreate", async (message) => {
@@ -98,6 +97,12 @@ client.on("messageCreate", async (message) => {
             }
 
             cmd.output(outputPath)
+                .on('start', (commandLine) => {
+                    console.log('Executando FFmpeg: ' + commandLine);
+                })
+                .on('stderr', (stderrLine) => {
+                    console.log('Log FFmpeg: ' + stderrLine);
+                })
                 .on('end', async () => {
                     await msgCarregando.delete().catch(() => {});
                     await message.reply({ files: [outputPath] });
@@ -120,45 +125,9 @@ client.on("messageCreate", async (message) => {
             message.reply("❌ Erro ao transferir o arquivo.");
         }
     }
-
-    // ==========================================
-    // COMANDO ?vasco @usuario
-    // ==========================================
-    if (command === "vasco") {
-        const alvo = message.mentions.members.first() || message.member;
-        const msgCarregando = await message.reply("⏳ Convocando para o Gigante...");
-
-        try {
-            // Link direto e testado
-            const urlMolde = "https://i.ibb.co/Gvx0k1Q/e6d27591dce73a109da64fde92e019bb.jpg";
-            const avatarUrl = alvo.user.displayAvatarURL({ extension: "png", size: 512 });
-
-            const [molde, avatar] = await Promise.all([
-                Jimp.read(urlMolde),
-                Jimp.read(avatarUrl)
-            ]);
-
-            // Redimensiona o avatar para caber no rosto
-            avatar.resize(250, 250); 
-
-            // Cola o avatar nas coordenadas exatas (x=115, y=215)
-            molde.composite(avatar, 115, 215);
-
-            const buffer = await molde.getBufferAsync(Jimp.MIME_JPEG);
-            const attachment = new AttachmentBuilder(buffer, { name: `vasco-${alvo.user.username}.jpg` });
-
-            await msgCarregando.delete().catch(() => {});
-            return message.reply({ content: `💢 **${alvo.user.username}** foi convocado!`, files: [attachment] });
-
-        } catch (error) {
-            console.error("Erro no Jimp:", error);
-            await msgCarregando.delete().catch(() => {});
-            return message.reply("❌ Erro ao processar a imagem.");
-        }
-    }
 });
 
-// Verificação de Token antes do login para evitar crashes silenciosos
+// Verificação de Token antes do login
 if (!TOKEN) {
     console.error("ERRO: Variável TOKEN não definida no painel da Discloud!");
     process.exit(1);
