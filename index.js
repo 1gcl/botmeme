@@ -198,11 +198,30 @@ client.on("messageCreate", async (message) => {
                 return msgCarregando.edit("❌ Não encontrei a mensagem. Ela pode ter sido apagada.");
             }
 
-            // Verifica se há um anexo de áudio na mensagem
-            const anexo = msgAlvo.attachments.first();
-            if (!anexo || !anexo.contentType?.includes("audio")) {
-                return msgCarregando.edit("❌ A mensagem informada não contém um arquivo de áudio anexado.");
+            // ==========================================
+            // NOVO SISTEMA DE BUSCA DE ÁUDIO (Inclui Encaminhados)
+            // ==========================================
+            const verificarAudio = (a) => a.contentType?.includes("audio") || a.name?.endsWith(".ogg") || a.name?.endsWith(".mp3");
+
+            // 1. Tenta achar o anexo de áudio diretamente na mensagem
+            let anexo = msgAlvo.attachments.find(verificarAudio);
+
+            // 2. Se não achou direto, procura dentro de mensagens encaminhadas (Snapshots)
+            if (!anexo && msgAlvo.messageSnapshots) {
+                for (const snapshot of msgAlvo.messageSnapshots.values()) {
+                    const anexoSnap = snapshot.message.attachments.find(verificarAudio);
+                    if (anexoSnap) {
+                        anexo = anexoSnap;
+                        break;
+                    }
+                }
             }
+
+            // 3. Verifica se finalmente encontrou algum áudio
+            if (!anexo) {
+                return msgCarregando.edit("❌ A mensagem informada não contém um arquivo de áudio (mesmo nas mensagens encaminhadas).");
+            }
+            // ==========================================
 
             await msgCarregando.edit("⏳ Áudio encontrado! Baixando e convertendo para MP3...");
             
