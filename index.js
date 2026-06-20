@@ -145,11 +145,13 @@ client.on("messageCreate", async (message) => {
         if (!msgAlvo) return msgCarregando.edit("❌ Não encontrei a mensagem. Responda a uma mensagem de áudio ou envie o link.");
 
         const verificarAudio = (a) => a.contentType?.includes("audio") || a.name?.endsWith(".ogg") || a.name?.endsWith(".mp3");
+        
         let anexo = msgAlvo.attachments.find(verificarAudio);
         
+        // CORREÇÃO DO ERRO: Adicionado ?. para segurança no snapshot
         if (!anexo && msgAlvo.messageSnapshots) {
             for (const snapshot of msgAlvo.messageSnapshots.values()) {
-                anexo = snapshot.message.attachments.find(verificarAudio);
+                anexo = snapshot.message?.attachments?.find(verificarAudio);
                 if (anexo) break;
             }
         }
