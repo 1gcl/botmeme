@@ -35,6 +35,28 @@ client.once("clientReady", () => {
 
 client.on("messageCreate", async (message) => {
     if (message.author.bot) return;
+
+    // ==========================================
+    // SISTEMA DE AUTO-LIMPEZA DE GIFS/IMAGENS (10 MINUTOS)
+    // ==========================================
+    // 👇 COLOQUE O ID DO CANAL ESPECÍFICO AQUI 👇
+    const CANAL_LIMPEZA_ID = 1517097590355787868; 
+
+    if (message.channel.id === CANAL_LIMPEZA_ID) {
+        const temAnexo = message.attachments.size > 0;
+        const temLink = message.content.includes("http");
+
+        // Se a mensagem tiver uma imagem upada ou um link (GIF), programa a exclusão
+        if (temAnexo || temLink) {
+            setTimeout(() => {
+                // O .catch() evita que o bot trave caso algum admin já tenha apagado a mensagem antes dos 10 min
+                message.delete().catch(() => {});
+            }, 10 * 60 * 1000); // 10 minutos em milissegundos
+        }
+    }
+    // ==========================================
+
+    // A partir daqui, o bot ignora qualquer mensagem que não comece com "?"
     if (!message.content.startsWith(PREFIX)) return;
 
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
@@ -129,11 +151,9 @@ client.on("messageCreate", async (message) => {
         const msgCarregando = await message.reply("⏳ Buscando áudio...");
         let msgAlvo;
 
-        // Se marcou (respondeu) uma mensagem, usa ela
         if (message.reference) {
             msgAlvo = await message.channel.messages.fetch(message.reference.messageId);
         } 
-        // Se mandou um link, usa o link
         else if (args[0] && args[0].includes("discord.com/channels/")) {
             const linkParts = args[0].split("/");
             const msgId = linkParts.pop(); 
@@ -148,7 +168,6 @@ client.on("messageCreate", async (message) => {
         
         let anexo = msgAlvo.attachments.find(verificarAudio);
         
-        // CORREÇÃO DO ERRO: Adicionado ?. para segurança no snapshot
         if (!anexo && msgAlvo.messageSnapshots) {
             for (const snapshot of msgAlvo.messageSnapshots.values()) {
                 anexo = snapshot.message?.attachments?.find(verificarAudio);
