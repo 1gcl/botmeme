@@ -51,7 +51,7 @@ client.on("messageCreate", async (message) => {
         if (temAnexo || temLink) {
             setTimeout(() => {
                 message.delete().catch(() => {});
-            }, 10 * 60 * 1000);
+            }, 5 * 60 * 1000);
         }
     }
     // ==========================================
