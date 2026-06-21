@@ -11,6 +11,9 @@ const ffmpeg = require("fluent-ffmpeg");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+const util = require("util");
+const exec = util.promisify(require('child_process').exec);
 
 // Servidor HTTP para manter o bot online na Discloud
 http.createServer((req, res) => {
@@ -39,24 +42,20 @@ client.on("messageCreate", async (message) => {
     // ==========================================
     // SISTEMA DE AUTO-LIMPEZA DE GIFS/IMAGENS (10 MINUTOS)
     // ==========================================
-    // ID corrigido com aspas (String)
     const CANAL_LIMPEZA_ID = "1517097590355787868"; 
 
     if (message.channel.id === CANAL_LIMPEZA_ID) {
         const temAnexo = message.attachments.size > 0;
         const temLink = message.content.includes("http");
 
-        // Se a mensagem tiver uma imagem upada ou um link (GIF), programa a exclusão
         if (temAnexo || temLink) {
             setTimeout(() => {
-                // O .catch() evita que o bot trave caso algum admin já tenha apagado a mensagem antes
                 message.delete().catch(() => {});
-            }, 10 * 60 * 1000); // 10 minutos em milissegundos
+            }, 10 * 60 * 1000);
         }
     }
     // ==========================================
 
-    // A partir daqui, o bot ignora qualquer mensagem que não comece com "?"
     if (!message.content.startsWith(PREFIX)) return;
 
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
@@ -115,6 +114,68 @@ client.on("messageCreate", async (message) => {
         } catch (error) {
             console.error("Erro:", error);
             await msgCarregando.delete().catch(() => {});
+        }
+    }
+
+    // ==========================================
+    // COMANDO ?meme2 (Imagem sobreposta no Vídeo)
+    // ==========================================
+    if (command === "meme2") {
+        const attachments = Array.from(message.attachments.values());
+        const imagem = attachments.find(a => a.contentType && a.contentType.startsWith('image/'));
+        const video = attachments.find(a => a.contentType && a.contentType.startsWith('video/'));
+
+        if (!imagem || !video) {
+            return message.reply("❌ Você precisa enviar **1 imagem** (PNG/JPG/WEBP) e **1 vídeo** (MP4/MOV/WEBM) anexados na mesma mensagem.");
+        }
+
+        const aviso = await message.reply("⏳ **Processando vídeo...** Isso pode levar alguns segundos dependendo do tamanho.");
+
+        const id = Date.now();
+        const imgExt = imagem.name.split('.').pop();
+        const vidExt = video.name.split('.').pop();
+        
+        const tempImgPath = path.join(os.tmpdir(), `img_${id}.${imgExt}`);
+        const tempVidPath = path.join(os.tmpdir(), `vid_${id}.${vidExt}`);
+        const outputPath = path.join(os.tmpdir(), `out_${id}.mp4`);
+
+        try {
+            // Função interna para baixar usando o axios já importado
+            const downloadFile = async (url, dest) => {
+                const res = await axios({ url, responseType: 'stream' });
+                const writer = fs.createWriteStream(dest);
+                res.data.pipe(writer);
+                return new Promise((resolve, reject) => { 
+                    writer.on('finish', resolve); 
+                    writer.on('error', reject); 
+                });
+            };
+
+            await Promise.all([
+                downloadFile(imagem.url, tempImgPath),
+                downloadFile(video.url, tempVidPath)
+            ]);
+
+            const filtro = '[1:v]scale=iw*0.15:-1[logo];[0:v][logo]overlay=W-w-20:H-h-20';
+            const ffmpegCommand = `ffmpeg -y -i "${tempVidPath}" -i "${tempImgPath}" -filter_complex "${filtro}" -c:a copy "${outputPath}"`;
+            
+            await exec(ffmpegCommand);
+
+            const videoFinal = new AttachmentBuilder(outputPath, { name: 'meme2_rift.mp4' });
+            
+            await aviso.edit({ 
+                content: '✅ **Vídeo gerado com sucesso!**', 
+                files: [videoFinal] 
+            });
+
+        } catch (error) {
+            console.error('Erro no processamento do meme2:', error);
+            await aviso.edit('❌ **Erro ao processar o vídeo.** O formato pode ser incompatível ou o arquivo é grande demais.').catch(() => {});
+        } finally {
+            // Limpeza de Arquivos Segura
+            if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath);
+            if (fs.existsSync(tempVidPath)) fs.unlinkSync(tempVidPath);
+            if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         }
     }
 
