@@ -156,8 +156,8 @@ client.on("messageCreate", async (message) => {
                 downloadFile(video.url, tempVidPath)
             ]);
 
-            const filtro = '[1:v]scale=iw*0.40:-1[logo];[0:v][logo]overlay=W-w-20:H-h-20';
-            const ffmpegCommand = `ffmpeg -y -i "${tempVidPath}" -i "${tempImgPath}" -filter_complex "${filtro}" -c:a copy "${outputPath}"`;
+            const filtro = '[1:v]scale=iw*0.90:-1[logo];[0:v][logo]overlay=W-w-20:H-h-20';
+            const ffmpegCommand = `ffmpeg -y -i "${tempVidPath}" -i "${tempImgPath}" -filter_complex "${filtro}" -preset ultrafast -threads 2 -c:v libx264 -c:a copy "${outputPath}"`;
             
             await exec(ffmpegCommand);
 
