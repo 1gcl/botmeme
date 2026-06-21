@@ -39,8 +39,8 @@ client.on("messageCreate", async (message) => {
     // ==========================================
     // SISTEMA DE AUTO-LIMPEZA DE GIFS/IMAGENS (10 MINUTOS)
     // ==========================================
-    // 👇 COLOQUE O ID DO CANAL ESPECÍFICO AQUI 👇
-    const CANAL_LIMPEZA_ID = 1517097590355787868; 
+    // ID corrigido com aspas (String)
+    const CANAL_LIMPEZA_ID = "1517097590355787868"; 
 
     if (message.channel.id === CANAL_LIMPEZA_ID) {
         const temAnexo = message.attachments.size > 0;
@@ -49,7 +49,7 @@ client.on("messageCreate", async (message) => {
         // Se a mensagem tiver uma imagem upada ou um link (GIF), programa a exclusão
         if (temAnexo || temLink) {
             setTimeout(() => {
-                // O .catch() evita que o bot trave caso algum admin já tenha apagado a mensagem antes dos 10 min
+                // O .catch() evita que o bot trave caso algum admin já tenha apagado a mensagem antes
                 message.delete().catch(() => {});
             }, 10 * 60 * 1000); // 10 minutos em milissegundos
         }
