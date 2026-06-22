@@ -9,8 +9,51 @@ const { deleteFile } = require("../../utils/download");
 
 const execAsync = promisify(exec);
 
-// Link de download direto do áudio WASTED do Jumpshare
-const WASTED_AUDIO_URL = "https://jumpshare.com/download/zN5vvfb94ouX33AoohiQ";
+// URLs de áudio WASTED (com fallbacks)
+const WASTED_AUDIO_URLS = [
+    "https://www.soundjay.com/misc/wasted-gta-v-sound.mp3",
+    "https://sounds.zediva.com/media/sounds/video-game-sound-effects/gta-wasted-sound.mp3",
+    "data:audio/mpeg;base64,SUQzBAAAAAAAI1NUUkUAAAAOAAAARGlzY28gRXJhAAA="
+];
+
+/**
+ * Tenta baixar áudio de múltiplas fontes
+ */
+async function downloadWastedAudio(filePath) {
+    for (const url of WASTED_AUDIO_URLS) {
+        try {
+            console.log(`Tentando baixar áudio de: ${url}`);
+            const response = await axios({
+                url: url,
+                method: 'GET',
+                responseType: 'stream',
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                },
+                timeout: 15000,
+                maxRedirects: 5
+            });
+
+            const writer = fs.createWriteStream(filePath);
+            response.data.pipe(writer);
+
+            await new Promise((resolve, reject) => {
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+            });
+
+            // Verificar se baixou algo
+            if (fs.existsSync(filePath) && fs.statSync(filePath).size > 1000) {
+                console.log(`✅ Áudio baixado com sucesso de: ${url}`);
+                return true;
+            }
+        } catch (err) {
+            console.log(`❌ Falha ao baixar de ${url}:`, err.message);
+            deleteFile(filePath);
+        }
+    }
+    return false;
+}
 
 module.exports = {
     name: 'wasted',
@@ -33,7 +76,12 @@ module.exports = {
 
         try {
             // Download do vídeo do usuário
-            const videoResponse = await axios({ url: attachment.url, responseType: 'stream', timeout: 30000 });
+            const videoResponse = await axios({ 
+                url: attachment.url, 
+                responseType: 'stream', 
+                timeout: 30000,
+                maxRedirects: 5
+            });
             const videoWriter = fs.createWriteStream(inputVideoPath);
             videoResponse.data.pipe(videoWriter);
 
@@ -42,31 +90,17 @@ module.exports = {
                 videoWriter.on('error', reject);
             });
 
-            // Download do áudio do efeito WASTED
-            const audioResponse = await axios({ 
-                url: WASTED_AUDIO_URL, 
-                responseType: 'stream', 
-                timeout: 30000,
-                headers: {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-                }
-            });
-            const audioWriter = fs.createWriteStream(audioEffectPath);
-            audioResponse.data.pipe(audioWriter);
-
-            await new Promise((resolve, reject) => {
-                audioWriter.on('finish', resolve);
-                audioWriter.on('error', reject);
-            });
-
-            // Validar downloads
+            // Validar vídeo
             if (!fs.existsSync(inputVideoPath) || fs.statSync(inputVideoPath).size === 0) {
                 await msg.edit("❌ Erro ao baixar o vídeo.").catch(() => {});
                 return;
             }
 
-            if (!fs.existsSync(audioEffectPath) || fs.statSync(audioEffectPath).size === 0) {
-                await msg.edit("❌ Erro ao baixar o áudio do efeito.").catch(() => {});
+            // Download do áudio do efeito WASTED (com fallbacks)
+            const audioDownloaded = await downloadWastedAudio(audioEffectPath);
+            
+            if (!audioDownloaded || !fs.existsSync(audioEffectPath) || fs.statSync(audioEffectPath).size === 0) {
+                await msg.edit("❌ Erro ao baixar o áudio do efeito. Tente novamente mais tarde.").catch(() => {});
                 return;
             }
 
@@ -78,6 +112,7 @@ module.exports = {
 
             const ffmpegCommand = `ffmpeg -y -i "${inputVideoPath}" -i "${audioEffectPath}" -filter_complex "[0:v]${filterVideo}[vout];${filterAudio}" -map "[vout]" -map "[aout]" -c:v libx264 -preset ultrafast -threads 2 -c:a aac "${outputPath}"`;
 
+            console.log("Executando FFmpeg...");
             const { stderr } = await execAsync(ffmpegCommand);
             if (stderr) console.log("FFmpeg output:", stderr);
 
@@ -92,8 +127,8 @@ module.exports = {
             await message.reply({ files: [anexo], failIfNotExists: false }).catch(() => {});
 
         } catch (error) {
-            console.error("Erro ao aplicar efeito WASTED:", error.stderr || error.message);
-            await msg.edit("❌ Erro ao processar o vídeo.").catch(() => {});
+            console.error("Erro ao aplicar efeito WASTED:", error.message);
+            await msg.edit("❌ Erro ao processar o vídeo. Verifique o console para mais detalhes.").catch(() => {});
         } finally {
             deleteFile(inputVideoPath);
             deleteFile(audioEffectPath);
