@@ -43,7 +43,7 @@ async function executeCommand(message, commandName, args, client, commands) {
     const command = commands.get(commandName.toLowerCase());
 
     if (!command) {
-        return message.reply("❌ Comando não encontrado!").catch(() => {});
+        return;
     }
 
     try {
