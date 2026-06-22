@@ -42,11 +42,24 @@ module.exports = {
                 writer.on('error', reject);
             });
 
-            const fontPath = path.join(__dirname, '../../impact.ttf').replace(/\\/g, '/');
+            // Caminho correto para o arquivo impacto.ttf na raiz do projeto
+            const fontPath = path.join(process.cwd(), 'impacto.ttf').replace(/\\/g, '/');
 
             let cmd = ffmpeg(inputPath).videoFilters([
                 { filter: 'pad', options: 'iw:ih+100:0:100:white' },
-                { filter: 'drawtext', options: { fontfile: fontPath, text: text, fontsize: 40, fontcolor: 'black', x: '(w-text_w)/2', y: '(100-text_h)/2' } }
+                { 
+                    filter: 'drawtext', 
+                    options: { 
+                        fontfile: fontPath, 
+                        text: text, 
+                        fontsize: 50,           // Aumentado para melhor preenchimento
+                        fontcolor: 'black', 
+                        borderw: 3,            // Adiciona a borda grossa (peso visual)
+                        bordercolor: 'black',  // Cor da borda
+                        x: '(w-text_w)/2', 
+                        y: '(100-text_h)/2' 
+                    } 
+                }
             ]);
 
             if (isGif) {
