@@ -40,7 +40,7 @@ client.on("messageCreate", async (message) => {
     if (message.author.bot) return;
 
     // ==========================================
-    // SISTEMA DE AUTO-LIMPEZA DE GIFS/IMAGENS (10 MINUTOS)
+    // SISTEMA DE AUTO-LIMPEZA DE GIFS/IMAGENS (5 MINUTOS)
     // ==========================================
     const CANAL_LIMPEZA_ID = "1517097590355787868"; 
 
@@ -66,17 +66,18 @@ client.on("messageCreate", async (message) => {
     // ==========================================
     if (command === "meme1") {
         const attachment = message.attachments.first();
-        if (!attachment) return message.reply("❌ Anexe um vídeo ou GIF!");
+        if (!attachment) return message.reply("❌ Anexe um vídeo ou GIF!").catch(() => {});
         
         const text = args.join(" ");
-        if (!text) return message.reply("❌ Forneça o texto do meme!");
+        if (!text) return message.reply("❌ Forneça o texto do meme!").catch(() => {});
 
         const isGif = attachment.contentType === "image/gif";
         const isVideo = attachment.contentType.startsWith("video/");
         
-        if (!isGif && !isVideo) return message.reply("⚠️ Este bot lida apenas com vídeos e GIFs.");
+        if (!isGif && !isVideo) return message.reply("⚠️ Este bot lida apenas com vídeos e GIFs.").catch(() => {});
 
-        const msgCarregando = await message.reply("🎥 Processando...");
+        const msgCarregando = await message.reply("🎥 Processando...").catch(() => {});
+        if (!msgCarregando) return; // Se falhou ao enviar o aviso, cancela.
 
         const ext = isGif ? "gif" : "mp4";
         const inputPath = path.join(__dirname, `in_${message.author.id}_${Date.now()}.${ext}`);
@@ -101,14 +102,16 @@ client.on("messageCreate", async (message) => {
             cmd.output(outputPath)
                 .on('end', async () => {
                     await msgCarregando.delete().catch(() => {});
-                    await message.reply({ files: [outputPath] });
+                    // ANTI-CRASH: failIfNotExists
+                    await message.reply({ files: [outputPath], failIfNotExists: false }).catch(() => {});
+                    
                     if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
                     if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
                 })
                 .on('error', async (err) => {
                     console.error("Erro FFmpeg:", err);
                     await msgCarregando.delete().catch(() => {});
-                    message.reply("❌ Erro ao processar.");
+                    message.channel.send("❌ Erro ao processar o vídeo.").catch(() => {});
                 })
                 .run();
         } catch (error) {
@@ -126,10 +129,11 @@ client.on("messageCreate", async (message) => {
         const video = attachments.find(a => a.contentType && a.contentType.startsWith('video/'));
 
         if (!imagem || !video) {
-            return message.reply("❌ Você precisa enviar **1 imagem** (PNG/JPG/WEBP) e **1 vídeo** (MP4/MOV/WEBM) anexados na mesma mensagem.");
+            return message.reply("❌ Você precisa enviar **1 imagem** (PNG/JPG/WEBP) e **1 vídeo** (MP4/MOV/WEBM) anexados na mesma mensagem.").catch(() => {});
         }
 
-        const aviso = await message.reply("⏳ **Processando vídeo...** Isso pode levar alguns segundos dependendo do tamanho.");
+        const aviso = await message.reply("⏳ **Processando vídeo...** Isso pode levar alguns segundos dependendo do tamanho.").catch(() => {});
+        if (!aviso) return;
 
         const id = Date.now();
         const imgExt = imagem.name.split('.').pop();
@@ -140,7 +144,6 @@ client.on("messageCreate", async (message) => {
         const outputPath = path.join(os.tmpdir(), `out_${id}.mp4`);
 
         try {
-            // Função interna para baixar usando o axios já importado
             const downloadFile = async (url, dest) => {
                 const res = await axios({ url, responseType: 'stream' });
                 const writer = fs.createWriteStream(dest);
@@ -163,16 +166,18 @@ client.on("messageCreate", async (message) => {
 
             const videoFinal = new AttachmentBuilder(outputPath, { name: 'meme2_rift.mp4' });
             
+            // ANTI-CRASH: Se o aviso tiver sido apagado, ele manda no canal normalmente.
             await aviso.edit({ 
                 content: '✅ **Vídeo gerado com sucesso!**', 
                 files: [videoFinal] 
+            }).catch(async () => {
+                await message.channel.send({ content: '✅ **Vídeo gerado com sucesso!**', files: [videoFinal] }).catch(() => {});
             });
 
         } catch (error) {
             console.error('Erro no processamento do meme2:', error);
             await aviso.edit('❌ **Erro ao processar o vídeo.** O formato pode ser incompatível ou o arquivo é grande demais.').catch(() => {});
         } finally {
-            // Limpeza de Arquivos Segura
             if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath);
             if (fs.existsSync(tempVidPath)) fs.unlinkSync(tempVidPath);
             if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
@@ -184,13 +189,16 @@ client.on("messageCreate", async (message) => {
     // ==========================================
     if (command === "ttkv" || command === "ttka") {
         const url = args[0];
-        if (!url || !url.includes("tiktok.com")) return message.reply("❌ Link inválido!");
+        if (!url || !url.includes("tiktok.com")) return message.reply("❌ Link inválido!").catch(() => {});
 
-        const msg = await message.reply("⏳ Extraindo...");
+        const msg = await message.reply("⏳ Extraindo...").catch(() => {});
+        if (!msg) return;
+
         try {
             const req = await axios.get(`https://www.tikwm.com/api/?url=${url}`);
             const data = req.data.data;
-            if (!data) return msg.edit("❌ Vídeo não encontrado.");
+            
+            if (!data) return msg.edit("❌ Vídeo não encontrado.").catch(() => {});
 
             const isAudio = command === "ttka";
             const fileUrl = isAudio ? data.music : data.play;
@@ -198,10 +206,12 @@ client.on("messageCreate", async (message) => {
             
             const anexo = new AttachmentBuilder(fileUrl, { name: `tiktok_rift.${ext}` });
             await msg.delete().catch(() => {});
-            return message.reply({ files: [anexo] });
+            
+            // ANTI-CRASH: failIfNotExists
+            return message.reply({ files: [anexo], failIfNotExists: false }).catch(() => {});
         } catch (error) {
             await msg.delete().catch(() => {});
-            return message.reply("❌ Erro ao baixar.");
+            return message.channel.send("❌ Erro ao baixar.").catch(() => {});
         }
     }
 
@@ -209,11 +219,13 @@ client.on("messageCreate", async (message) => {
     // COMANDO ?linkaudio (Funciona com Link OU Respondendo uma mensagem)
     // ==========================================
     if (command === "linkaudio") {
-        const msgCarregando = await message.reply("⏳ Buscando áudio...");
+        const msgCarregando = await message.reply("⏳ Buscando áudio...").catch(() => {});
+        if (!msgCarregando) return;
+
         let msgAlvo;
 
         if (message.reference) {
-            msgAlvo = await message.channel.messages.fetch(message.reference.messageId);
+            msgAlvo = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
         } 
         else if (args[0] && args[0].includes("discord.com/channels/")) {
             const linkParts = args[0].split("/");
@@ -223,7 +235,7 @@ client.on("messageCreate", async (message) => {
             if (canal) msgAlvo = await canal.messages.fetch(msgId).catch(() => null);
         }
 
-        if (!msgAlvo) return msgCarregando.edit("❌ Não encontrei a mensagem. Responda a uma mensagem de áudio ou envie o link.");
+        if (!msgAlvo) return msgCarregando.edit("❌ Não encontrei a mensagem. Responda a uma mensagem de áudio ou envie o link.").catch(() => {});
 
         const verificarAudio = (a) => a.contentType?.includes("audio") || a.name?.endsWith(".ogg") || a.name?.endsWith(".mp3");
         
@@ -236,25 +248,34 @@ client.on("messageCreate", async (message) => {
             }
         }
 
-        if (!anexo) return msgCarregando.edit("❌ A mensagem não contém áudio.");
+        if (!anexo) return msgCarregando.edit("❌ A mensagem não contém áudio.").catch(() => {});
 
-        await msgCarregando.edit("⏳ Baixando e convertendo...");
+        await msgCarregando.edit("⏳ Baixando e convertendo...").catch(() => {});
         const inputPath = path.join(__dirname, `in_${Date.now()}.ogg`);
         const outputPath = path.join(__dirname, `out_${Date.now()}.mp3`);
 
-        const response = await axios({ url: anexo.url, responseType: 'stream' });
-        const writer = fs.createWriteStream(inputPath);
-        response.data.pipe(writer);
-        await new Promise((resolve) => writer.on('finish', resolve));
+        try {
+            const response = await axios({ url: anexo.url, responseType: 'stream' });
+            const writer = fs.createWriteStream(inputPath);
+            response.data.pipe(writer);
+            await new Promise((resolve) => writer.on('finish', resolve));
 
-        ffmpeg(inputPath).output(outputPath)
-            .on('end', async () => {
-                await msgCarregando.delete();
-                await message.reply({ files: [outputPath] });
-                fs.unlinkSync(inputPath);
-                fs.unlinkSync(outputPath);
-            })
-            .run();
+            ffmpeg(inputPath).output(outputPath)
+                .on('end', async () => {
+                    await msgCarregando.delete().catch(() => {});
+                    // ANTI-CRASH: failIfNotExists
+                    await message.reply({ files: [outputPath], failIfNotExists: false }).catch(() => {});
+                    
+                    if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+                    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+                })
+                .on('error', () => {
+                    msgCarregando.edit("❌ Erro na conversão.").catch(() => {});
+                })
+                .run();
+        } catch (error) {
+            msgCarregando.edit("❌ Erro ao baixar o áudio.").catch(() => {});
+        }
     }
 });
 
