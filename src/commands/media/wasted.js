@@ -4,56 +4,12 @@ const { AttachmentBuilder } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const axios = require("axios");
 const { deleteFile } = require("../../utils/download");
 
 const execAsync = promisify(exec);
 
-// URLs de áudio WASTED (com fallbacks)
-const WASTED_AUDIO_URLS = [
-    "https://www.soundjay.com/misc/wasted-gta-v-sound.mp3",
-    "https://sounds.zediva.com/media/sounds/video-game-sound-effects/gta-wasted-sound.mp3",
-    "data:audio/mpeg;base64,SUQzBAAAAAAAI1NUUkUAAAAOAAAARGlzY28gRXJhAAA="
-];
-
-/**
- * Tenta baixar áudio de múltiplas fontes
- */
-async function downloadWastedAudio(filePath) {
-    for (const url of WASTED_AUDIO_URLS) {
-        try {
-            console.log(`Tentando baixar áudio de: ${url}`);
-            const response = await axios({
-                url: url,
-                method: 'GET',
-                responseType: 'stream',
-                headers: {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-                },
-                timeout: 15000,
-                maxRedirects: 5
-            });
-
-            const writer = fs.createWriteStream(filePath);
-            response.data.pipe(writer);
-
-            await new Promise((resolve, reject) => {
-                writer.on('finish', resolve);
-                writer.on('error', reject);
-            });
-
-            // Verificar se baixou algo
-            if (fs.existsSync(filePath) && fs.statSync(filePath).size > 1000) {
-                console.log(`✅ Áudio baixado com sucesso de: ${url}`);
-                return true;
-            }
-        } catch (err) {
-            console.log(`❌ Falha ao baixar de ${url}:`, err.message);
-            deleteFile(filePath);
-        }
-    }
-    return false;
-}
+// Caminho local do áudio WASTED (arquivo armazenado no bot)
+const WASTED_AUDIO_PATH = path.join(__dirname, '../../..', 'wasted.mp3');
 
 module.exports = {
     name: 'wasted',
@@ -65,17 +21,22 @@ module.exports = {
             return message.reply("❌ Anexe um vídeo!").catch(() => {});
         }
 
+        // Verificar se o arquivo de áudio existe
+        if (!fs.existsSync(WASTED_AUDIO_PATH)) {
+            return message.reply("❌ Arquivo de áudio WASTED não encontrado no servidor. Contate o administrador.").catch(() => {});
+        }
+
         const msg = await message.reply("💀 Aplicando efeito WASTED...").catch(() => {});
         if (!msg) return;
 
         const id = Date.now();
         const ext = attachment.name.split('.').pop() || 'mp4';
         const inputVideoPath = path.join(os.tmpdir(), `wasted_vid_${id}.${ext}`);
-        const audioEffectPath = path.join(os.tmpdir(), `wasted_aud_${id}.mp3`);
         const outputPath = path.join(os.tmpdir(), `wasted_out_${id}.mp4`);
 
         try {
             // Download do vídeo do usuário
+            const axios = require("axios");
             const videoResponse = await axios({ 
                 url: attachment.url, 
                 responseType: 'stream', 
@@ -96,23 +57,16 @@ module.exports = {
                 return;
             }
 
-            // Download do áudio do efeito WASTED (com fallbacks)
-            const audioDownloaded = await downloadWastedAudio(audioEffectPath);
-            
-            if (!audioDownloaded || !fs.existsSync(audioEffectPath) || fs.statSync(audioEffectPath).size === 0) {
-                await msg.edit("❌ Erro ao baixar o áudio do efeito. Tente novamente mais tarde.").catch(() => {});
-                return;
-            }
-
-            // Montar comando FFmpeg com filter_complex
-            // Vídeo: preto e branco (hue=s=0) + WASTED em vermelho no centro
-            // Áudio: mixar áudio original + áudio do efeito (amix=inputs=2:duration=first)
+            // Comando FFmpeg robusto com filtros melhorados
+            // -vn no arquivo de áudio garante que o FFmpeg reconheça só como áudio
+            // aformat prepara o áudio para mixagem
+            // amix com duration=first mantém o tamanho do vídeo original
             const filterVideo = "hue=s=0,drawtext=text='WASTED':fontcolor=red:fontsize=h/5:x=(w-text_w)/2:y=(h-text_h)/2";
-            const filterAudio = "[0:a][1:a]amix=inputs=2:duration=first[aout]";
+            const filterAudio = "[1:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a1];[0:a][a1]amix=inputs=2:duration=first";
 
-            const ffmpegCommand = `ffmpeg -y -i "${inputVideoPath}" -i "${audioEffectPath}" -filter_complex "[0:v]${filterVideo}[vout];${filterAudio}" -map "[vout]" -map "[aout]" -c:v libx264 -preset ultrafast -threads 2 -c:a aac "${outputPath}"`;
+            const ffmpegCommand = `ffmpeg -y -i "${inputVideoPath}" -i "${WASTED_AUDIO_PATH}" -filter_complex "[0:v]${filterVideo}[vout];${filterAudio}[aout]" -map "[vout]" -map "[aout]" -c:v libx264 -preset ultrafast -threads 2 -c:a aac -q:a 5 "${outputPath}"`;
 
-            console.log("Executando FFmpeg...");
+            console.log("Executando FFmpeg com áudio local...");
             const { stderr } = await execAsync(ffmpegCommand);
             if (stderr) console.log("FFmpeg output:", stderr);
 
@@ -128,10 +82,9 @@ module.exports = {
 
         } catch (error) {
             console.error("Erro ao aplicar efeito WASTED:", error.message);
-            await msg.edit("❌ Erro ao processar o vídeo. Verifique o console para mais detalhes.").catch(() => {});
+            await msg.edit("❌ Erro ao processar o vídeo: " + error.message.slice(0, 50)).catch(() => {});
         } finally {
             deleteFile(inputVideoPath);
-            deleteFile(audioEffectPath);
             deleteFile(outputPath);
         }
     }

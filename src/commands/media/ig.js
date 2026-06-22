@@ -26,77 +26,78 @@ module.exports = {
         try {
             let videoUrl = null;
 
-            // Tentativa 1: API do Cobalt oficial (sem query string)
+            // Tentativa 1: SnapInsta API (alternativa gratuita e confiável)
             try {
-                console.log("Tentativa 1: Cobalt API com URL limpa");
-                const cobaltResponse = await axios.post(
-                    "https://api.cobalt.tools/api/json",
-                    { url: url },
+                console.log("Tentativa 1: SnapInsta API");
+                const snapResponse = await axios.get(
+                    `https://snap-instagram.p.rapidapi.com/api/v1/social?url=${encodeURIComponent(url)}`,
                     {
                         headers: {
-                            "Accept": "application/json",
-                            "Content-Type": "application/json",
+                            "X-RapidAPI-Key": process.env.RAPIDAPI_KEY || "demo",
+                            "X-RapidAPI-Host": "snap-instagram.p.rapidapi.com",
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
                         },
                         timeout: 10000
                     }
                 );
 
-                if (cobaltResponse.data?.url) {
-                    videoUrl = cobaltResponse.data.url;
-                    console.log("✅ Cobalt API funcionou");
+                if (snapResponse.data?.data?.video) {
+                    videoUrl = snapResponse.data.data.video;
+                    console.log("✅ SnapInsta funcionou");
                 }
             } catch (err1) {
-                console.log("❌ Cobalt falhou:", err1.response?.status || err1.message);
+                console.log("❌ SnapInsta falhou:", err1.response?.status || err1.message);
             }
 
-            // Tentativa 2: instadown.net API como fallback
+            // Tentativa 2: API Cobalt com referer do Instagram
             if (!videoUrl) {
                 try {
-                    console.log("Tentativa 2: instadown.net API");
-                    const igDownResponse = await axios.get(
-                        `https://instagram-downloader.p.rapidapi.com/index`,
+                    console.log("Tentativa 2: Cobalt API com referer");
+                    const cobaltResponse = await axios.post(
+                        "https://api.cobalt.tools/api/json",
+                        { url: url },
                         {
-                            params: { url: url },
                             headers: {
-                                "X-RapidAPI-Key": process.env.RAPIDAPI_KEY || "demo",
-                                "X-RapidAPI-Host": "instagram-downloader.p.rapidapi.com"
+                                "Accept": "application/json",
+                                "Content-Type": "application/json",
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                                "referer": "https://www.instagram.com/"
                             },
                             timeout: 10000
                         }
                     );
 
-                    if (igDownResponse.data?.media?.[0]?.url) {
-                        videoUrl = igDownResponse.data.media[0].url;
-                        console.log("✅ instadown.net funcionou");
+                    if (cobaltResponse.data?.url) {
+                        videoUrl = cobaltResponse.data.url;
+                        console.log("✅ Cobalt funcionou");
                     }
                 } catch (err2) {
-                    console.log("❌ instadown.net falhou:", err2.message);
+                    console.log("❌ Cobalt falhou:", err2.response?.status || err2.message);
                 }
             }
 
-            // Tentativa 3: API pública simples
+            // Tentativa 3: instavideo.tube API
             if (!videoUrl) {
                 try {
-                    console.log("Tentativa 3: API pública alternativa");
-                    const altResponse = await axios.get(
-                        `https://www.instagram.com/p/${url.split('/').filter(u => u).pop()}/`,
+                    console.log("Tentativa 3: instavideo.tube API");
+                    const instaResponse = await axios.post(
+                        "https://instavideo.tube/api/",
+                        { url: url },
                         {
                             headers: {
+                                "Content-Type": "application/x-www-form-urlencoded",
                                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
                             },
                             timeout: 10000
                         }
                     );
 
-                    // Extrair URL de vídeo da página
-                    const match = altResponse.data.match(/"video_url":"([^"]+)"/);
-                    if (match?.[1]) {
-                        videoUrl = match[1].replace(/\\\//g, "/");
-                        console.log("✅ Extração de página funcionou");
+                    if (instaResponse.data?.url) {
+                        videoUrl = instaResponse.data.url;
+                        console.log("✅ instavideo.tube funcionou");
                     }
                 } catch (err3) {
-                    console.log("❌ Extração de página falhou:", err3.message);
+                    console.log("❌ instavideo.tube falhou:", err3.message);
                 }
             }
 
@@ -111,7 +112,8 @@ module.exports = {
                 method: 'GET',
                 responseType: 'stream',
                 headers: {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    "referer": "https://www.instagram.com/"
                 },
                 timeout: 30000,
                 maxRedirects: 5
