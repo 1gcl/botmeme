@@ -9,8 +9,8 @@ const { deleteFile } = require("../../utils/download");
 
 const execAsync = promisify(exec);
 
-// URL do som do efeito WASTED do GTA V
-const WASTED_AUDIO_URL = "https://www.myinstants.com/media/sounds/wasted-gta-v.mp3";
+// Link de download direto do áudio WASTED do Jumpshare
+const WASTED_AUDIO_URL = "https://jumpshare.com/download/zN5vvfb94ouX33AoohiQ";
 
 module.exports = {
     name: 'wasted',
@@ -33,7 +33,7 @@ module.exports = {
 
         try {
             // Download do vídeo do usuário
-            const videoResponse = await axios({ url: attachment.url, responseType: 'stream' });
+            const videoResponse = await axios({ url: attachment.url, responseType: 'stream', timeout: 30000 });
             const videoWriter = fs.createWriteStream(inputVideoPath);
             videoResponse.data.pipe(videoWriter);
 
@@ -43,7 +43,14 @@ module.exports = {
             });
 
             // Download do áudio do efeito WASTED
-            const audioResponse = await axios({ url: WASTED_AUDIO_URL, responseType: 'stream', timeout: 15000 });
+            const audioResponse = await axios({ 
+                url: WASTED_AUDIO_URL, 
+                responseType: 'stream', 
+                timeout: 30000,
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                }
+            });
             const audioWriter = fs.createWriteStream(audioEffectPath);
             audioResponse.data.pipe(audioWriter);
 
@@ -51,6 +58,17 @@ module.exports = {
                 audioWriter.on('finish', resolve);
                 audioWriter.on('error', reject);
             });
+
+            // Validar downloads
+            if (!fs.existsSync(inputVideoPath) || fs.statSync(inputVideoPath).size === 0) {
+                await msg.edit("❌ Erro ao baixar o vídeo.").catch(() => {});
+                return;
+            }
+
+            if (!fs.existsSync(audioEffectPath) || fs.statSync(audioEffectPath).size === 0) {
+                await msg.edit("❌ Erro ao baixar o áudio do efeito.").catch(() => {});
+                return;
+            }
 
             // Montar comando FFmpeg com filter_complex
             // Vídeo: preto e branco (hue=s=0) + WASTED em vermelho no centro

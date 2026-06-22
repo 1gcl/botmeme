@@ -9,10 +9,13 @@ module.exports = {
     name: 'ig',
     description: 'Baixa vídeo do Instagram Reels',
     async execute(message, args) {
-        const url = args[0];
+        let url = args[0];
         if (!url || !url.includes("instagram.com")) {
             return message.reply("❌ Link inválido! Use: `?ig https://instagram.com/reel/...`").catch(() => {});
         }
+
+        // Remover parâmetros de query (tudo após o ?)
+        url = url.split('?')[0];
 
         const msg = await message.reply("⏳ Extraindo do Instagram...").catch(() => {});
         if (!msg) return;
@@ -21,34 +24,37 @@ module.exports = {
         const filePath = path.join(os.tmpdir(), `ig_${id}.mp4`);
 
         try {
-            // Requisição para Cobalt API
+            // Requisição para API Oficial do Cobalt
             const cobaltResponse = await axios.post(
-                "https://co.wuk.sh/api/json",
-                { url: url },
+                "https://api.cobalt.tools/api/json",
+                {
+                    url: url,
+                    vQuality: "720"
+                },
                 {
                     headers: {
                         "Accept": "application/json",
                         "Content-Type": "application/json",
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
                     },
                     timeout: 15000
                 }
             );
 
             if (!cobaltResponse.data?.url) {
-                await msg.edit("❌ Não foi possível extrair o vídeo. Link pode estar inválido, privado ou a API está indisponível.").catch(() => {});
+                await msg.edit("❌ Não foi possível extrair o vídeo. Link pode estar inválido ou privado.").catch(() => {});
                 return;
             }
 
             const videoUrl = cobaltResponse.data.url;
 
-            // Download físico do vídeo para a pasta temp
+            // Download físico do vídeo para a pasta temp usando stream
             const downloadResponse = await axios({
                 url: videoUrl,
                 method: 'GET',
                 responseType: 'stream',
                 headers: {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
                 },
                 timeout: 30000
             });
