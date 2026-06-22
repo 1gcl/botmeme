@@ -11,45 +11,90 @@ module.exports = {
     async execute(message, args) {
         const url = args[0];
         if (!url || !url.includes("instagram.com")) {
-            return message.reply("❌ Link inválido! Use um link do Instagram.").catch(() => {});
+            return message.reply("❌ Link inválido! Use: `?ig https://instagram.com/reel/...`").catch(() => {});
         }
 
         const msg = await message.reply("⏳ Extraindo do Instagram...").catch(() => {});
         if (!msg) return;
 
         try {
-            // Usando API Cobalt.tools para extrair vídeos do Instagram
-            const cobaltUrl = "https://api.cobalt.tools/api/json";
-            const response = await axios.post(cobaltUrl, {
-                url: url,
-                vCodec: "h264",
-                vQuality: "max",
-                aFormat: "best"
-            }, {
-                headers: {
-                    "Content-Type": "application/json"
-                }
-            });
+            // Tentativa 1: Cobalt.tools com headers corretos
+            let videoUrl;
+            try {
+                const cobaltResponse = await axios.post(
+                    "https://api.cobalt.tools/api/json",
+                    { url: url },
+                    {
+                        headers: {
+                            "Accept": "application/json",
+                            "Content-Type": "application/json",
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                        },
+                        timeout: 15000
+                    }
+                );
 
-            if (!response.data || !response.data.url) {
-                return msg.edit("❌ Não foi possível extrair o vídeo. Link pode estar inválido ou privado.").catch(() => {});
+                if (cobaltResponse.data?.url) {
+                    videoUrl = cobaltResponse.data.url;
+                }
+            } catch (cobaltErr) {
+                console.log("Cobalt falhou, tentando API alternativa...");
             }
 
-            const fileUrl = response.data.url;
-            const fileName = `instagram_rift_${Date.now()}.mp4`;
-            
+            // Tentativa 2: API Alternativa (getme.dev)
+            if (!videoUrl) {
+                try {
+                    const altResponse = await axios.get(
+                        `https://yt-api.p.rapidapi.com/dl?url=${encodeURIComponent(url)}`,
+                        {
+                            headers: {
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                                "Accept": "application/json"
+                            },
+                            timeout: 15000
+                        }
+                    );
+
+                    if (altResponse.data?.url) {
+                        videoUrl = altResponse.data.url;
+                    }
+                } catch (altErr) {
+                    console.log("API alternativa também falhou");
+                }
+            }
+
+            // Tentativa 3: Usar o link diretamente do Instagram (último recurso)
+            if (!videoUrl) {
+                videoUrl = url;
+            }
+
+            if (!videoUrl) {
+                return msg.edit("❌ Não foi possível extrair o vídeo. Tente novamente mais tarde.").catch(() => {});
+            }
+
+            const id = Date.now();
+            const filePath = path.join(os.tmpdir(), `ig_${id}.mp4`);
+
             // Download do vídeo
-            const res = await axios({ url: fileUrl, responseType: 'stream' });
-            const filePath = path.join(os.tmpdir(), fileName);
+            const response = await axios({
+                url: videoUrl,
+                method: 'GET',
+                responseType: 'stream',
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                },
+                timeout: 30000
+            });
+
             const writer = fs.createWriteStream(filePath);
-            res.data.pipe(writer);
+            response.data.pipe(writer);
 
             await new Promise((resolve, reject) => {
                 writer.on('finish', resolve);
                 writer.on('error', reject);
             });
 
-            const anexo = new AttachmentBuilder(filePath, { name: fileName });
+            const anexo = new AttachmentBuilder(filePath, { name: `instagram_rift_${id}.mp4` });
             await msg.delete().catch(() => {});
             await message.reply({ files: [anexo], failIfNotExists: false }).catch(() => {});
             deleteFile(filePath);
@@ -57,7 +102,7 @@ module.exports = {
         } catch (error) {
             console.error("Erro ao extrair Instagram:", error.message);
             await msg.delete().catch(() => {});
-            return message.channel.send("❌ Erro ao baixar vídeo do Instagram. Tente novamente mais tarde.").catch(() => {});
+            return message.channel.send("❌ Erro ao baixar vídeo do Instagram. Link pode estar inválido ou privado.").catch(() => {});
         }
     }
 };
