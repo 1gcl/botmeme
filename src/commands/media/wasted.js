@@ -47,7 +47,7 @@ module.exports = {
             // -crf 28 e -maxrate 2M controlam o tamanho do arquivo (evita erro 413)
             // fontfile usa a fonte impact.ttf que está na sua raiz
             // borderw=2 e bordercolor=black criam a borda grossa (peso visual)
-            const filterVideo = `hue=s=0,drawtext=fontfile='${FONT_PATH}':text='WASTED':fontcolor=white:borderw=2:bordercolor=black:fontsize=h/5:x=(w-text_w)/2:y=(h-text_h)/2`;
+            const filterVideo = `hue=s=0,drawtext=fontfile='${FONT_PATH}':text='WASTED':fontcolor=red:borderw=3:bordercolor=white:fontsize=h/5:x=(w-text_w)/2:y=(h-text_h)/2`;
             const ffmpegCommand = `ffmpeg -y -i "${inputVideoPath}" -i "${cleanAudioPath}" -filter_complex "[0:v]${filterVideo}[vout];[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=0[aout]" -map "[vout]" -map "[aout]" -c:v libx264 -preset ultrafast -crf 28 -maxrate 2M -bufsize 4M -c:a aac -b:a 128k "${outputPath}"`;
 
             await execAsync(ffmpegCommand);
