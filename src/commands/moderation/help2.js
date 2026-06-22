@@ -7,6 +7,8 @@ module.exports = {
         const commands = [
             { name: '?meme1', desc: 'Adiciona texto Impact em vídeo/GIF' },
             { name: '?meme2', desc: 'Sobrepõe imagem em vídeo' },
+            { name: '?gif', desc: 'Converte vídeo em GIF alta qualidade' },
+            { name: '?wasted', desc: 'Efeito GTA V (preto e branco + som)' },
             { name: '?ttkv', desc: 'Baixa vídeo do TikTok' },
             { name: '?ttka', desc: 'Baixa áudio do TikTok' },
             { name: '?linkaudio', desc: 'Extrai áudio de mensagem' },
@@ -24,15 +26,15 @@ module.exports = {
             .addFields(
                 { 
                     name: '🎬 Edição de Vídeo', 
-                    value: commands.slice(0, 5).map(cmd => `**${cmd.name}** - ${cmd.desc}`).join('\n')
+                    value: commands.slice(0, 4).map(cmd => `**${cmd.name}** - ${cmd.desc}`).join('\n')
                 },
                 { 
                     name: '🌐 Redes Sociais', 
-                    value: commands.slice(5, 7).map(cmd => `**${cmd.name}** - ${cmd.desc}`).join('\n')
+                    value: commands.slice(4, 8).map(cmd => `**${cmd.name}** - ${cmd.desc}`).join('\n')
                 },
                 { 
-                    name: '⚙️ Processamento', 
-                    value: commands.slice(7).map(cmd => `**${cmd.name}** - ${cmd.desc}`).join('\n')
+                    name: '⚙️ Processamento Avançado', 
+                    value: commands.slice(8).map(cmd => `**${cmd.name}** - ${cmd.desc}`).join('\n')
                 }
             )
             .setFooter({ text: 'Anexe seus arquivos junto com o comando' })
