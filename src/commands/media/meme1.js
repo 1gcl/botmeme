@@ -54,7 +54,7 @@ module.exports = {
                         text: text, 
                         fontsize: 50,           // Aumentado para melhor preenchimento
                         fontcolor: 'black', 
-                        borderw: 3,            // Adiciona a borda grossa (peso visual)
+                        borderw: 0,            // Adiciona a borda grossa (peso visual)
                         bordercolor: 'black',  // Cor da borda
                         x: '(w-text_w)/2', 
                         y: '(100-text_h)/2' 
