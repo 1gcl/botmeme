@@ -13,15 +13,24 @@ module.exports = {
     name: 'meme2',
     description: 'Sobrepõe uma imagem em um vídeo',
     async execute(message, args) {
-        const attachments = Array.from(message.attachments.values());
+        // 1. Busca imagem e vídeo (pode ser na mensagem atual ou em uma resposta/reply)
+        let attachments = Array.from(message.attachments.values());
+        
+        if (message.reference) {
+            const repliedMessage = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+            if (repliedMessage) {
+                attachments = [...attachments, ...Array.from(repliedMessage.attachments.values())];
+            }
+        }
+
         const imagem = attachments.find(a => a.contentType?.startsWith('image/'));
         const video = attachments.find(a => a.contentType?.startsWith('video/'));
 
         if (!imagem || !video) {
-            return message.reply("❌ Você precisa enviar **1 imagem** (PNG/JPG/WEBP) e **1 vídeo** (MP4/MOV/WEBM) anexados na mesma mensagem.").catch(() => {});
+            return message.reply("❌ Você precisa enviar/responder com **1 imagem** e **1 vídeo**.").catch(() => {});
         }
 
-        const aviso = await message.reply("⏳ **Processando vídeo...** Isso pode levar alguns segundos dependendo do tamanho.").catch(() => {});
+        const aviso = await message.reply("⏳ **Processando vídeo...**").catch(() => {});
         if (!aviso) return;
 
         const id = Date.now();
@@ -58,13 +67,14 @@ module.exports = {
             await aviso.edit({
                 content: '✅ **Vídeo gerado com sucesso!**',
                 files: [videoFinal]
-            }).catch(async () => {
-                await message.channel.send({ content: '✅ **Vídeo gerado com sucesso!**', files: [videoFinal] }).catch(() => {});
-            });
+            }).catch(() => {});
+
+            // 2. DELEÇÃO: Apaga o comando original do usuário
+            message.delete().catch(() => {});
 
         } catch (error) {
             console.error('Erro no processamento do meme2:', error.message);
-            await aviso.edit('❌ **Erro ao processar o vídeo.** O formato pode ser incompatível ou o arquivo é grande demais.').catch(() => {});
+            await aviso.edit('❌ **Erro ao processar o vídeo.**').catch(() => {});
         } finally {
             deleteFile(tempImgPath);
             deleteFile(tempVidPath);
