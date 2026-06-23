@@ -42,8 +42,8 @@ module.exports = {
                 writer.on('error', reject);
             });
 
-            // Caminho correto para o arquivo impacto.ttf na raiz do projeto
-            const fontPath = path.join(process.cwd(), 'impacto.ttf').replace(/\\/g, '/');
+            // Caminho correto para o arquivo TOONISH.ttf na raiz do projeto
+            const fontPath = path.join(process.cwd(), 'TOONISH.ttf').replace(/\\/g, '/');
 
             let cmd = ffmpeg(inputPath).videoFilters([
                 { filter: 'pad', options: 'iw:ih+100:0:100:white' },
