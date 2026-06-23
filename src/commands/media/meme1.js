@@ -7,17 +7,32 @@ const { deleteFile } = require("../../utils/download");
 
 module.exports = {
     name: 'meme1',
-    description: 'Adiciona texto Impact em vídeo ou GIF',
+    description: 'Adiciona texto TOONISH em vídeo ou GIF',
     async execute(message, args) {
-        const attachment = message.attachments.first();
+        // 1. Busca vídeo: anexo direto ou resposta a uma mensagem com anexo
+        let attachment = message.attachments.first();
+        if (!attachment && message.reference) {
+            const repliedMessage = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+            if (repliedMessage && repliedMessage.attachments.size > 0) {
+                attachment = repliedMessage.attachments.first();
+            }
+        }
+
         if (!attachment) {
-            return message.reply("❌ Anexe um vídeo ou GIF!").catch(() => {});
+            return message.reply("❌ Anexe um vídeo/GIF ou responda a uma mensagem que contenha um!").catch(() => {});
         }
 
         const text = args.join(" ");
         if (!text) {
             return message.reply("❌ Forneça o texto do meme!").catch(() => {});
         }
+
+        // 2. Escapa caracteres que quebram o FFmpeg (importante!)
+        const textoTratado = text
+            .replace(/\\/g, '\\\\')
+            .replace(/:/g, '\\:')
+            .replace(/,/g, '\\,')
+            .replace(/'/g, "\\'");
 
         const isGif = attachment.contentType === "image/gif";
         const isVideo = attachment.contentType?.startsWith("video/");
@@ -42,7 +57,6 @@ module.exports = {
                 writer.on('error', reject);
             });
 
-            // Caminho correto para o arquivo TOONISH.ttf na raiz do projeto
             const fontPath = path.join(process.cwd(), 'TOONISH.ttf').replace(/\\/g, '/');
 
             let cmd = ffmpeg(inputPath).videoFilters([
@@ -51,11 +65,10 @@ module.exports = {
                     filter: 'drawtext', 
                     options: { 
                         fontfile: fontPath, 
-                        text: text, 
-                        fontsize: 50,           // Aumentado para melhor preenchimento
+                        text: textoTratado, 
+                        fontsize: 50,
                         fontcolor: 'black', 
-                        borderw: 0,            // Adiciona a borda grossa (peso visual)
-                        bordercolor: 'black',  // Cor da borda
+                        borderw: 0,
                         x: '(w-text_w)/2', 
                         y: '(100-text_h)/2' 
                     } 
@@ -70,16 +83,12 @@ module.exports = {
 
             cmd.output(outputPath)
                 .on('end', async () => {
-                    // Apaga a mensagem de "🎥 Processando..."
                     await msgCarregando.delete().catch(() => {});
-                    
-                    // Envia o meme pronto
                     await message.reply({ files: [outputPath], failIfNotExists: false }).catch(() => {});
                     
-                    // 👉 AQUI ESTÁ A MELHORIA: Apaga o comando original do usuário (?meme1 ...)
+                    // Apaga o comando original do usuário
                     message.delete().catch(() => {});
                     
-                    // Limpa os arquivos temporários
                     deleteFile(inputPath);
                     deleteFile(outputPath);
                 })
@@ -87,6 +96,8 @@ module.exports = {
                     console.error("Erro FFmpeg:", err.message);
                     await msgCarregando.delete().catch(() => {});
                     message.channel.send("❌ Erro ao processar o vídeo.").catch(() => {});
+                    deleteFile(inputPath);
+                    deleteFile(outputPath);
                 })
                 .run();
         } catch (error) {
