@@ -23,9 +23,16 @@ module.exports = {
 
             const fileUrl = data.play;
             const anexo = new AttachmentBuilder(fileUrl, { name: `tiktok_rift.mp4` });
+            
+            // Remove a mensagem de "⏳ Extraindo..."
             await msg.delete().catch(() => {});
 
-            return message.reply({ files: [anexo], failIfNotExists: false }).catch(() => {});
+            // Envia o vídeo
+            await message.reply({ files: [anexo], failIfNotExists: false }).catch(() => {});
+            
+            // 👉 MELHORIA: Apaga o comando original do usuário (?ttkv ...)
+            await message.delete().catch(() => {});
+
         } catch (error) {
             console.error("Erro ao baixar TikTok:", error.message);
             await msg.delete().catch(() => {});
