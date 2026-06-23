@@ -70,8 +70,16 @@ module.exports = {
 
             cmd.output(outputPath)
                 .on('end', async () => {
+                    // Apaga a mensagem de "🎥 Processando..."
                     await msgCarregando.delete().catch(() => {});
+                    
+                    // Envia o meme pronto
                     await message.reply({ files: [outputPath], failIfNotExists: false }).catch(() => {});
+                    
+                    // 👉 AQUI ESTÁ A MELHORIA: Apaga o comando original do usuário (?meme1 ...)
+                    message.delete().catch(() => {});
+                    
+                    // Limpa os arquivos temporários
                     deleteFile(inputPath);
                     deleteFile(outputPath);
                 })
