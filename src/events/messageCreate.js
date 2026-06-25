@@ -1,7 +1,7 @@
 const { loadCommands, executeCommand } = require("../handlers/commandHandler");
 
 const PREFIX = "?";
-const CANAL_LIMPEZA_ID = "1517097590355787868";
+const CANAL_LIMPEZA_ID = "1519825671893811331";
 
 module.exports = {
     name: 'messageCreate',
