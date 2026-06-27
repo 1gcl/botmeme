@@ -21,7 +21,7 @@ module.exports = {
 
         if (!img || !vid) return message.reply("❌ Envie ou responda com **1 imagem e 1 vídeo**.").catch(() => {});
 
-        const aviso = await message.reply("🎥 Aplicando capa esticada (duração: 3s)...").catch(() => {});
+        const aviso = await message.reply("🎥 Aplicando capa forçada na tela toda (3s)...").catch(() => {});
         const id = Date.now();
         const imgPath = path.join(os.tmpdir(), `capa_${id}.png`);
         const vidPath = path.join(os.tmpdir(), `vid_${id}.mp4`);
@@ -35,10 +35,10 @@ module.exports = {
 
             ffmpeg(vidPath)
                 .input(imgPath)
-                // Escala forçada para as dimensões exatas do vídeo (iw e ih)
+                // O scale2ref pega a imagem [1:v] e estica exatamente para o tamanho do vídeo [0:v]
                 .complexFilter([
-                    '[1:v]scale=w=iw:h=ih[img]', 
-                    '[0:v][img]overlay=0:0:enable=\'between(t,0,3)\''
+                    '[1:v][0:v]scale2ref=iw:ih[img][vid]', 
+                    '[vid][img]overlay=0:0:enable=\'between(t,0,3)\''
                 ])
                 .outputOptions(['-preset ultrafast', '-c:a copy'])
                 .save(outPath)
