@@ -8,7 +8,7 @@ const { deleteFile } = require("../../utils/download");
 
 module.exports = {
     name: 'capa',
-    description: 'Adiciona uma imagem como capa de um vídeo por 3 segundos',
+    description: 'Adiciona uma imagem como capa de um vídeo esticada por 3 segundos',
     async execute(message, args) {
         let attachments = Array.from(message.attachments.values());
         if (message.reference) {
@@ -21,7 +21,7 @@ module.exports = {
 
         if (!img || !vid) return message.reply("❌ Envie ou responda com **1 imagem e 1 vídeo**.").catch(() => {});
 
-        const aviso = await message.reply("🎥 Aplicando capa (duração: 3s)...").catch(() => {});
+        const aviso = await message.reply("🎥 Aplicando capa esticada (duração: 3s)...").catch(() => {});
         const id = Date.now();
         const imgPath = path.join(os.tmpdir(), `capa_${id}.png`);
         const vidPath = path.join(os.tmpdir(), `vid_${id}.mp4`);
@@ -35,9 +35,9 @@ module.exports = {
 
             ffmpeg(vidPath)
                 .input(imgPath)
-                // O filtro abaixo redimensiona a imagem e a exibe apenas entre 0s e 3s
+                // Escala forçada para as dimensões exatas do vídeo (iw e ih)
                 .complexFilter([
-                    '[1:v]scale=iw:ih[img]', 
+                    '[1:v]scale=w=iw:h=ih[img]', 
                     '[0:v][img]overlay=0:0:enable=\'between(t,0,3)\''
                 ])
                 .outputOptions(['-preset ultrafast', '-c:a copy'])
