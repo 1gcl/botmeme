@@ -38,7 +38,7 @@ module.exports = {
                 // O scale2ref pega a imagem [1:v] e estica exatamente para o tamanho do vídeo [0:v]
                 .complexFilter([
                     '[1:v][0:v]scale2ref=iw:ih[img][vid]', 
-                    '[vid][img]overlay=0:0:enable=\'between(t,0,3)\''
+                    '[vid][img]overlay=0:0:enable=\'between(t,0,2)\''
                 ])
                 .outputOptions(['-preset ultrafast', '-c:a copy'])
                 .save(outPath)
